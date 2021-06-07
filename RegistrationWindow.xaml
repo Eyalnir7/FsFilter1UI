@@ -1,0 +1,27 @@
+﻿<Window x:Class="FsFilter1UI.RegistrationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:FsFilter1UI"
+        mc:Ignorable="d"
+        Title="RegistrationWindow" Height="450" Width="800">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition/>
+            <RowDefinition/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+        <Label Content="Create Password:" HorizontalAlignment="Left" Margin="55,0,0,0" VerticalAlignment="Center" FontSize="30"/>
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition/>
+                <ColumnDefinition/>
+            </Grid.ColumnDefinitions>
+            <Button Content="Cancel" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" FontSize="20" x:Name="cancelButton" Click="cancelButton_Click"/>
+            <Button Content="Register" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Grid.Column="1" FontSize="20" x:Name="registerButton" Click="registerButton_Click"/>
+        </Grid>
+        <Label Content="New Password:" HorizontalAlignment="Left" Margin="30,0,0,0" Grid.Row="1" VerticalAlignment="Center" FontSize="20"/>
+        <TextBox HorizontalAlignment="Left" Margin="177,0,0,0" Grid.Row="1" TextWrapping="Wrap" VerticalAlignment="Center" Width="587" Height="36" FontSize="20" x:Name="Password"/>
+    </Grid>
+</Window>
