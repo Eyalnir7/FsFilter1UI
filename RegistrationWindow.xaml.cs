@@ -1,4 +1,4 @@
-﻿using Microsoft.Win32;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -25,9 +25,6 @@ namespace FsFilter1UI
         {
             InitializeComponent();
             this.saltSize = saltSize;
-            Registry.ClassesRoot.CreateSubKey(@"Directory\shell\FolderBlocker");
-            Registry.ClassesRoot.CreateSubKey(@"Directory\shell\FolderBlocker\command");
-            Registry.SetValue(@"HKEY_CLASSES_ROOT\Directory\shell\FolderBlocker\command", "(Default)", System.Reflection.Assembly.GetExecutingAssembly().Location);
         }
 
         private void cancelButton_Click(object sender, RoutedEventArgs e)
@@ -43,8 +40,15 @@ namespace FsFilter1UI
                 return;
             }
             string hash = MyEncryption.HashPasswordWithSalt(Password.Text, this.saltSize);
+
             Registry.SetValue("HKEY_LOCAL_MACHINE\\SYSTEM\\ControlSet001\\Services\\FsFilter1", "hash", hash, RegistryValueKind.String);
+
+            // add to context menu
+            Registry.ClassesRoot.CreateSubKey(@"Directory\shell\FolderBlocker");
+            Registry.ClassesRoot.CreateSubKey(@"Directory\shell\FolderBlocker\command");
+            Registry.SetValue(@"HKEY_CLASSES_ROOT\Directory\shell\FolderBlocker\command", "", MyEncryption.replaceExtension(System.Reflection.Assembly.GetExecutingAssembly().Location, "exe") + " %1");
             this.Close();
         }
     }
 }
+
