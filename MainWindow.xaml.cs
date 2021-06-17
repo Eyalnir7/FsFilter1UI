@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -9,6 +9,7 @@ using Ookii.Dialogs.Wpf;
 using Microsoft.Win32;
 using System.Linq;
 using System.Windows.Input;
+using System.Collections.ObjectModel;
 
 namespace FsFilter1UI
 {
@@ -20,22 +21,30 @@ namespace FsFilter1UI
         [DllImport("kernel32.dll")]
         static extern uint QueryDosDevice(string lpDeviceName, StringBuilder lpTargetPath, int ucchMax);
         private static string hash;
+        private ObservableCollection<Folder> folders = new ObservableCollection<Folder>();
+        private ObservableCollection<Folder> initialFolders = new ObservableCollection<Folder>();
         public MainWindow()
         {
             InitializeComponent();
-            FolderListBox.SelectionChanged += FolderListBox_SelectionChanged;
+            //if opened from context menu navigate to the different app
+            if (Environment.GetCommandLineArgs().Length > 1)
+            {
+                
+            }
+            //FolderListBox.SelectedIndexChanged += FolderListBox_SelectedIndexChanged; ;
             PasswordWindow passwordWindow = new PasswordWindow();
             passwordWindow.ShowDialog();
             if (passwordWindow.match == false) this.Close();
             MainWindow.hash = passwordWindow.hash;
-            string[] blockedFolders = GetBlockedFolders();
-            if (blockedFolders != null)
+            string[] folders = (string[])Registry.GetValue("hkey_local_machine\\system\\controlset001\\services\\fsfilter1", "BlockFolder", null);
+            if(folders == null)
             {
-                foreach (string folder in blockedFolders)
-                {
-                    FolderListBox.Items.Add(folder);
-                }
+                Registry.SetValue("HKEY_LOCAL_MACHINE\\SYSTEM\\ControlSet001\\Services\\FsFilter1", "BlockFolder", new string[] { "" }, RegistryValueKind.MultiString);
             }
+
+            PopulateFolderTable();
+            //folders.CollectionChanged += Folders_CollectionChanged;
+
             //stop the driver
             ProcessStartInfo ps = new ProcessStartInfo("cmd");
             ps.RedirectStandardInput = true;
@@ -56,6 +65,19 @@ namespace FsFilter1UI
             }
             this.Closed += MainWindow_Closed;
         }
+
+        //private void Folders_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        //{
+        //    if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Replace)
+        //    {
+        //        Folder oldItem = (Folder)e.OldItems[0];
+        //        if ( oldItem.encrypt!= ((Folder)e.NewItems[0]).encrypt)
+        //        {
+        //            if (oldItem.encrypt) MyEncryption.DecryptFolder(oldItem.path, hash, 32, 8);
+        //            else MyEncryption.EncryptFolder(oldItem.path, hash, 32, 8);
+        //        }
+        //    }
+        //}
 
         private void MainWindow_Closed(object sender, EventArgs e)
         {
@@ -81,19 +103,36 @@ namespace FsFilter1UI
             Mouse.OverrideCursor = null;
         }
 
-        private string[] GetBlockedFolders()
+        //private string[] GetBlockedFolders()
+        //{
+        //    string[] regFolders = (string[])Registry.GetValue("HKEY_LOCAL_MACHINE\\SYSTEM\\ControlSet001\\Services\\Fsfilter1", "BlockFolder", null);
+        //    if (regFolders == null) 
+        //    {
+        //        return null;
+        //    }
+        //    string[] blockedFolders = new string[regFolders.Length];
+        //    for (int i = 0; i < regFolders.Length; i++)
+        //    {
+        //        blockedFolders[i] = DevicePathMapper.FromDevicePath(regFolders[i]);
+        //    }
+        //    return blockedFolders;
+        //}
+
+        private void PopulateFolderTable()
         {
-            string[] regFolders = (string[])Registry.GetValue("HKEY_LOCAL_MACHINE\\SYSTEM\\ControlSet001\\Services\\Fsfilter1", "BlockFolder", null);
-            if (regFolders == null) 
+            string[] folderObjects = (string[])Registry.GetValue("hkey_local_machine\\system\\controlset001\\services\\fsfilter1", "FolderObjects", null);
+            if (folderObjects == null)
             {
-                return null;
+                return;
             }
-            string[] blockedFolders = new string[regFolders.Length];
-            for (int i = 0; i < regFolders.Length; i++)
+            for (int i = 0; i < folderObjects.Length; i++)
             {
-                blockedFolders[i] = DevicePathMapper.FromDevicePath(regFolders[i]);
+                string[] objString = folderObjects[i].Split(" ");
+                Folder folder = new Folder(objString[0], bool.Parse(objString[1]), bool.Parse(objString[2]), bool.Parse(objString[1]));
+                folders.Add(folder);
+                initialFolders.Add(folder);
             }
-            return blockedFolders;
+            FolderDataGrid.ItemsSource = folders;
         }
 
         //returns dictionary with the following keys: folders to encrypt, folders to dectrypt, folders to encrypt without their children folders, folders to decrypt without their children folders
@@ -146,11 +185,11 @@ namespace FsFilter1UI
         //    return encryptPart;
         //}
 
-        private void FolderListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (FolderListBox.SelectedItem != null) PathTextBox.Text = FolderListBox.SelectedItem.ToString();
-            else if (FolderListBox.Items.Count != 0) PathTextBox.Text = FolderListBox.Items[FolderListBox.Items.Count - 1].ToString();
-        }
+        //private void FolderListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        //{
+        //    if (FolderListBox.SelectedItem != null) PathTextBox.Text = FolderListBox.SelectedItem.ToString();
+        //    else if (FolderListBox.Items.Count != 0) PathTextBox.Text = FolderListBox.Items[FolderListBox.Items.Count - 1].ToString();
+        //}
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
@@ -159,61 +198,101 @@ namespace FsFilter1UI
             {
                 if (!ExistInList(dialog.SelectedPath))
                 {
-                    PathTextBox.Text = dialog.SelectedPath;
-                    FolderListBox.Items.Add(dialog.SelectedPath);
+                    //  PathTextBox.Text = dialog.SelectedPath;
+                    //FolderListBox.Items.Add(dialog.SelectedPath);
+                    Folder folder = new Folder(dialog.SelectedPath, false, false, false);
+                    folders.Add(folder);
+                    FolderDataGrid.ItemsSource = folders;
                     //encrypt all the none encrypted files
-                    Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
-                    MyEncryption.EncryptFolder(dialog.SelectedPath, hash, 32, 8);
-                    Mouse.OverrideCursor = null;
+                    //if (folder.encrypt == true) 
+                    //{
+                    //    Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
+                    //    MyEncryption.EncryptFolder(dialog.SelectedPath, hash, 32, 8);
+                    //    Mouse.OverrideCursor = null;
+                    //}
                 }
             }
+        }
+
+        private void RemoveFolderFromRegistry(Folder folder)
+        {
+            string[] oldFolderObjects = (string[])Registry.GetValue("hkey_local_machine\\system\\controlset001\\services\\fsfilter1", "FolderObjects", null);
+            List<string> folderObjects = new List<string>();
+            if (oldFolderObjects == null)
+            {
+                return;
+            }
+            for (int i = 0; i < oldFolderObjects.Length; i++)
+            {
+                if (!oldFolderObjects[i].StartsWith(folder.path)) folderObjects.Add(oldFolderObjects[i]);
+            }
+            string[] folderObjectsarr = new string[folderObjects.Count];
+            for (int i = 0; i < folderObjectsarr.Length; i++)
+            {
+                folderObjectsarr[i] = folderObjects[i];
+            }
+            Registry.SetValue("HKEY_LOCAL_MACHINE\\SYSTEM\\ControlSet001\\Services\\FsFilter1", "FolderObjects", folderObjectsarr, RegistryValueKind.MultiString);
         }
 
         //ExistInList returns true if the new path is already covered in the list
         //Also it removes any folder that the new path already covers
         private bool ExistInList(string path)
         {
-            List<object> toRemove = new List<object>();
-            foreach(var item in FolderListBox.Items)
+            List<Folder> toRemove = new List<Folder>();
+            foreach(Folder item in folders)
             {
-                if (path.StartsWith(item.ToString())) 
+                if (path.StartsWith(item.path)) 
                 {
-                    MessageBox.Show("You already blocked this folder");
+                    MessageBox.Show("You already blocked this folder with " + path);
                     return true;
                 }
-                if (item.ToString().StartsWith(path))
+                if (item.path.StartsWith(path))
                 {
                     toRemove.Add(item);
                 }
             }
-            foreach(var item in toRemove)
+            foreach(Folder item in toRemove)
             {
-                FolderListBox.Items.Remove(item);
+                RemoveFolder(item);
             }
             return false;
         }
-        private void RemoveButton_Click(object sender, RoutedEventArgs e)
+
+        private void RemoveFolder(Folder folder)
         {
-            if (FolderListBox.SelectedItem != null)
+            if (folder.encrypted)
             {
                 Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
-                MyEncryption.DecryptFolder(FolderListBox.SelectedItem.ToString(), hash, 32, 8);
+                MyEncryption.DecryptFolder(folder.path, hash, 32, 8);
                 Mouse.OverrideCursor = null;
-                FolderListBox.Items.Remove(FolderListBox.SelectedItem);
+            }
+            folders.Remove(folder);
+            RemoveFolderFromRegistry(folder);
+        }
+
+        private void RemoveButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (FolderDataGrid.SelectedItems != null)
+            {
+                foreach(var item in FolderDataGrid.SelectedItems) 
+                {
+                    RemoveFolder((Folder)item);
+                    if (FolderDataGrid.SelectedItem == null) return;
+                }
             }
             //else if (FolderListBox.Items.Count != 0) FolderListBox.Items.Remove(FolderListBox.Items[FolderListBox.Items.Count - 1]);
             //if (FolderListBox.Items.Count == 0) PathTextBox.Text = "";
         }
 
-        public string[] GetListBoxStrings()
-        {
-            string[] paths = new string[FolderListBox.Items.Count];
-            for (int i = 0; i < FolderListBox.Items.Count; i++)
-            {
-                paths[i] = FolderListBox.Items[i].ToString();
-            }
-            return paths;
-        }
+        //public string[] GetListBoxStrings()
+        //{
+        //    string[] paths = new string[FolderListBox.Items.Count];
+        //    for (int i = 0; i < FolderListBox.Items.Count; i++)
+        //    {
+        //        paths[i] = FolderListBox.Items[i].ToString();
+        //    }
+        //    return paths;
+        //}
         private static string GetRealPath(string path)
         {
             string realPath = path;
@@ -237,14 +316,41 @@ namespace FsFilter1UI
             Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
 
             //get the real paths of the items (with DEVICE\\HARDDISKVOLUME1\\...)
-            // and encrypt the folders
-            string[] realPaths = new string[FolderListBox.Items.Count];
-            for (int i = 0; i < realPaths.Length; i++)
+            string[] folderObjects = new string[FolderDataGrid.Items.Count];
+            List<string> realPathsList = new List<string>();
+            for (int i = 0; i < folderObjects.Length; i++)
             {
-                realPaths[i] = GetRealPath((string)FolderListBox.Items.GetItemAt(i)).ToUpper();
+                Folder folderObj = folders[i];
+
+                if(folderObj.encrypt != folderObj.encrypted)
+                {
+                    if (folderObj.encrypt)
+                    {
+                        MyEncryption.EncryptFolder(folderObj.path, hash, 32, 8);
+                        folderObj.encrypted = true;
+                    }
+                    else
+                    {
+                        MyEncryption.DecryptFolder(folderObj.path, hash, 32, 8);
+                        folderObj.encrypted = false;
+                    }
+                }
+
+                // this is for the driver
+                if (folderObj.block) realPathsList.Add(GetRealPath(folderObj.path).ToUpper());
+                //this is for the app
+                folderObjects[i] = folderObj.path + " " + folderObj.encrypt.ToString() + " " + folderObj.block.ToString();
             }
+            string[] realPaths = new string[realPathsList.Count];
+            for (int i = 0; i < realPathsList.Count; i++)
+            {
+                realPaths[i] = realPathsList[i];
+            }
+
             // set the registry with the new folders (thats where the driver read the folders to block)
-            Registry.SetValue("HKEY_LOCAL_MACHINE\\SYSTEM\\ControlSet001\\Services\\FsFilter1", "BlockFolder", realPaths, RegistryValueKind.MultiString);
+            if(realPaths.Length > 0) Registry.SetValue("HKEY_LOCAL_MACHINE\\SYSTEM\\ControlSet001\\Services\\FsFilter1", "BlockFolder", realPaths, RegistryValueKind.MultiString);
+            else Registry.SetValue("HKEY_LOCAL_MACHINE\\SYSTEM\\ControlSet001\\Services\\FsFilter1", "BlockFolder", new string[] {""}, RegistryValueKind.MultiString);
+            Registry.SetValue("HKEY_LOCAL_MACHINE\\SYSTEM\\ControlSet001\\Services\\FsFilter1", "FolderObjects", folderObjects, RegistryValueKind.MultiString);
             Mouse.OverrideCursor = null;
         }
     }
