@@ -1,4 +1,4 @@
-﻿using Microsoft.Win32;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -29,7 +29,7 @@ namespace FsFilter1UI
             }
         }
 
-        private static string replaceExtension(string path, string ext)
+        public static string replaceExtension(string path, string ext)
         {
             int i = path.LastIndexOf(".");
             return path.Substring(0, i + 1) + ext;
@@ -201,3 +201,4 @@ namespace FsFilter1UI
         }
     }
 }
+
